@@ -1,23 +1,23 @@
 .PHONY: test test-coverage clean lint fmt
 
-# テストを実行
+# Run tests
 test:
 	go test -v ./...
 
-# テストカバレッジを表示
+# Show test coverage
 test-coverage:
 	go test -v -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
-# リンティングを実行
+# Run linting
 lint:
 	golangci-lint run
 
-# フォーマットを実行
+# Run formatting
 fmt:
 	golangci-lint fmt
 
-# クリーンアップ
+# Clean up
 clean:
 	go clean
 	rm -f coverage.out
