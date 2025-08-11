@@ -1,0 +1,10 @@
+[project]
+name = "pytextcodec"
+version = "0.1.0"
+description = "Go package for text encoding/decoding compatible with Python's codecs"
+
+[tool.uv]
+dev-dependencies = [
+    "msgpack>=1.0.0",
+    "ruff>=0.12.8",
+]
