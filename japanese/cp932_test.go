@@ -1,6 +1,7 @@
 package japanese_test
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -231,7 +232,6 @@ func isSingleByteRange(c0 int) bool {
 	return c0 <= 0x80 || (0xA0 <= c0 && c0 <= 0xDF) || (0xFD <= c0 && c0 <= 0xFF)
 }
 
-// Legacy tests (keeping for backward compatibility)
 func TestCP932Encoding(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -259,6 +259,38 @@ func TestCP932Encoding(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestCP932EncodingBufferHandling(t *testing.T) {
+	t.Parallel()
+	t.Run("ErrShortDst1", func(t *testing.T) {
+		t.Parallel()
+		encoder := japanese.CP932.NewEncoder()
+		result, _, err := transform.Append(encoder, make([]byte, 0, 1), []byte("あ"))
+		assert.NoError(t, err, "Encoding error")
+		assert.Equal(t, []byte{0x82, 0xA0}, result)
+	})
+	t.Run("ErrShortDst2", func(t *testing.T) {
+		t.Parallel()
+		encoder := japanese.CP932.NewEncoder()
+		result, _, err := transform.Append(encoder, make([]byte, 0, 1), []byte("\u00A2"))
+		assert.NoError(t, err, "Encoding error")
+		assert.Equal(t, []byte{0x81, 0x91}, result)
+	})
+	t.Run("ErrShortSrc", func(t *testing.T) {
+		t.Parallel()
+		encoder := japanese.CP932.NewEncoder()
+		buf := bytes.NewBuffer([]byte{})
+		writer := transform.NewWriter(buf, encoder)
+		n, err := writer.Write([]byte{0xC2})
+		assert.NoError(t, err, "Encoding error")
+		assert.Equal(t, 1, n)
+		assert.Equal(t, 0, buf.Len())
+		n, err = writer.Write([]byte{0x80})
+		assert.NoError(t, err, "Encoding error")
+		assert.Equal(t, 1, n)
+		assert.Equal(t, []byte{0x80}, buf.Bytes())
+	})
 }
 
 func TestCP932Decoding(t *testing.T) {
@@ -290,12 +322,64 @@ func TestCP932Decoding(t *testing.T) {
 	}
 }
 
+func TestCP932DecoderBufferHandling(t *testing.T) {
+	t.Parallel()
+	t.Run("ErrShortSrc1", func(t *testing.T) {
+		t.Parallel()
+		decoder := japanese.CP932.NewDecoder()
+		buf := bytes.NewBuffer([]byte{})
+		writer := transform.NewWriter(buf, decoder)
+		n, err := writer.Write([]byte{0x82})
+		assert.NoError(t, err, "Decoding error")
+		assert.Equal(t, 1, n)
+		assert.Equal(t, 0, buf.Len())
+		n, err = writer.Write([]byte{0xA0})
+		assert.NoError(t, err, "Decoding error")
+		assert.Equal(t, 1, n)
+		assert.Equal(t, "あ", buf.String())
+	})
+	t.Run("ErrShortSrc2", func(t *testing.T) {
+		t.Parallel()
+		decoder := japanese.CP932.NewDecoder()
+		buf := bytes.NewBuffer([]byte{})
+		writer := transform.NewWriter(buf, decoder)
+		n, err := writer.Write([]byte{0xF0})
+		assert.NoError(t, err, "Decoding error")
+		assert.Equal(t, 1, n)
+		assert.Equal(t, 0, buf.Len())
+		n, err = writer.Write([]byte{0x40})
+		assert.NoError(t, err, "Decoding error")
+		assert.Equal(t, 1, n)
+		assert.Equal(t, []byte{0xEE, 0x80, 0x80}, buf.Bytes())
+	})
+	t.Run("ErrShortSrc3", func(t *testing.T) {
+		t.Parallel()
+		decoder := japanese.CP932.NewDecoder()
+		buf := bytes.NewBuffer([]byte{})
+		writer := transform.NewWriter(buf, decoder)
+		n, err := writer.Write([]byte{0xF0})
+		assert.NoError(t, err, "Decoding error")
+		assert.Equal(t, 1, n)
+		assert.Equal(t, 0, buf.Len())
+		err = writer.Close()
+		assert.NoError(t, err, "Decoding error")
+		assert.Equal(t, []byte{0xEF, 0xBF, 0xBD}, buf.Bytes())
+	})
+	t.Run("ErrShortDst", func(t *testing.T) {
+		t.Parallel()
+		decoder := japanese.CP932.NewDecoder()
+		result, _, err := transform.Append(decoder, make([]byte, 0, 1), []byte{0xA0})
+		assert.NoError(t, err, "Decoding error")
+		assert.Equal(t, []byte{0xEF, 0xA3, 0xB0}, result)
+	})
+}
+
 func TestCP932RoundTrip(t *testing.T) {
 	testStrings := []string{
 		"Hello, World!",
 		"こんにちは～", // includes full-width tilde (U+FF5E)
 		"Hello, 世界!",
-		"プログラミング",
+		"Programmingプログラミングﾌﾟﾛｸﾞﾗﾐﾝｸﾞ",
 	}
 
 	for _, input := range testStrings {

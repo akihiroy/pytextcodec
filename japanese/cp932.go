@@ -9,10 +9,7 @@ import (
 	"golang.org/x/text/transform"
 )
 
-var (
-	errInvalidRune           = errors.New("Transform: invalid rune")
-	errInconsistentByteCount = errors.New("Transform: inconsistent byte count returned")
-)
+var errInvalidRune = errors.New("Transform: invalid rune")
 
 // CP932 is the CP932 encoding, compatible with CPython's implementation.
 var CP932 encoding.Encoding = &cp932{}
@@ -46,16 +43,19 @@ func (c *cp932Decoder) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, e
 			r, size = 0xF8F0, 1
 		case c0 >= 0xF0 && c0 <= 0xF9:
 			if nSrc+1 >= len(src) {
-				return nDst, nSrc, transform.ErrShortSrc
-			}
-
-			switch c1 := src[nSrc+1]; {
-			case c1 >= 0x40 && c1 <= 0x7E:
-				r, size = rune(0xE000+188*(int(c0)-0xF0)+(int(c1)-0x40)), 2
-			case c1 >= 0x80 && c1 <= 0xFC:
-				r, size = rune(0xE000+188*(int(c0)-0xF0)+(int(c1)-0x41)), 2
-			default:
+				if !atEOF {
+					return nDst, nSrc, transform.ErrShortSrc
+				}
 				r, size = '\ufffd', 1
+			} else {
+				switch c1 := src[nSrc+1]; {
+				case c1 >= 0x40 && c1 <= 0x7E:
+					r, size = rune(0xE000+188*(int(c0)-0xF0)+(int(c1)-0x40)), 2
+				case c1 >= 0x80 && c1 <= 0xFC:
+					r, size = rune(0xE000+188*(int(c0)-0xF0)+(int(c1)-0x41)), 2
+				default:
+					r, size = '\ufffd', 1
+				}
 			}
 		case c0 >= 0xFD:
 			r, size = rune(0xF8F1-0xFD+int(c0)), 1
@@ -65,12 +65,12 @@ func (c *cp932Decoder) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, e
 			d, s, err := c.decoder.Transform(dst[nDst:], src[nSrc:nSrc+size], eof)
 			nDst += d
 			nSrc += s
-			// Continue if ErrShortSrc occurs but there's more data to process
-			if err != nil && (err != transform.ErrShortSrc || eof) {
+			if err != nil && err != transform.ErrShortSrc {
 				return nDst, nSrc, err
 			}
 			if s == 0 {
-				return nDst, nSrc, errInconsistentByteCount
+				// err should be ErrShortSrc
+				return nDst, nSrc, err
 			}
 			continue
 		}
