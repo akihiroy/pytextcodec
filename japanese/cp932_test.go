@@ -23,6 +23,8 @@ type (
 
 // loadEncoderTestData loads encoder test data from MessagePack file
 func loadEncoderTestData(t *testing.T) EncoderTestData {
+	t.Helper()
+
 	// Get the directory where this test file is located
 	testDir := filepath.Dir(".")
 	testDataDir := filepath.Join(testDir, "testdata")
@@ -44,6 +46,8 @@ func loadEncoderTestData(t *testing.T) EncoderTestData {
 
 // loadDecoderTestData loads decoder test data from MessagePack file
 func loadDecoderTestData(t *testing.T) DecoderTestData {
+	t.Helper()
+
 	// Get the directory where this test file is located
 	testDir := filepath.Dir(".")
 	testDataDir := filepath.Join(testDir, "testdata")
@@ -125,7 +129,6 @@ func TestCP932EncoderWithTestData(t *testing.T) {
 				} else {
 					require.Error(t, err, "Encoding should fail for %s", codeStr)
 				}
-
 			}
 		})
 	}
@@ -216,6 +219,8 @@ func testDecodingResult(
 	inputBytes []byte,
 	expectedCodeStr, testName string,
 ) {
+	t.Helper()
+
 	result, _, err := transform.Bytes(decoder, inputBytes)
 	assert.NoError(t, err, "Decoding failed for valid %s", testName)
 	assert.NotEmpty(t, result, "Decoding result is empty for valid %s", testName)
@@ -253,6 +258,7 @@ func TestCP932Encoding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			encoder := japanese.CP932.NewEncoder()
 			result, _, err := transform.Bytes(encoder, []byte(tt.input))
 			assert.NoError(t, err, "Encoding error")
@@ -314,6 +320,7 @@ func TestCP932Decoding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			decoder := japanese.CP932.NewDecoder()
 			result, _, err := transform.Bytes(decoder, tt.input)
 			assert.NoError(t, err, "Decoding error")
@@ -375,6 +382,7 @@ func TestCP932DecoderBufferHandling(t *testing.T) {
 }
 
 func TestCP932RoundTrip(t *testing.T) {
+	t.Parallel()
 	testStrings := []string{
 		"Hello, World!",
 		"こんにちは～", // includes full-width tilde (U+FF5E)

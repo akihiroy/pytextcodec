@@ -1,3 +1,4 @@
+// Package japanese provides Japanese encodings such as CP932 compatible with Python.
 package japanese
 
 import (

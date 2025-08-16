@@ -2,6 +2,10 @@ version: "2"
 
 linters:
   default: standard
+  enable:
+    - paralleltest
+    - thelper
+    - whitespace
 
 formatters:
   enable:
